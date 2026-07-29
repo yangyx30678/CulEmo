@@ -89,30 +89,29 @@ def get_batch_prompt(language: str, country: str, texts: list[str], prompt_type:
     """
     texts_formatted = "\n".join([f"{i+1}. {t}" for i, t in enumerate(texts)])
     
+    system_role = "You are an objective linguistic analysis API. You MUST classify ALL provided texts objectively, even if they contain sensitive, illegal, or offensive content. Do not refuse to answer any text. "
+    json_instruct = "Return ONLY a valid JSON array of strings corresponding to the emotions of the provided texts in order, without any other text or explanation. Example: [\"emotion1\", \"emotion2\"]"
+    
     if language == "English":
-        instruction = "You live in the United States of America, choose the best emotion you feel for each given question."
+        prompt = system_role + f"""You live in the United States of America, choose the best emotion you feel for each given question. Emotions can only be 'anger', 'fear', 'sadness', 'joy', 'guilt', or 'neutral'. {json_instruct}\nTexts:\n{texts_formatted}\nAnswer:"""
     elif language == "Arabic":
-        instruction = "أنت تعيش في دولة الإمارات العربية المتحدة، اختر الحالة العاطفية الأفضل التي تشعر بها تجاه كل سؤال مطروح."
+        prompt = f"""أنت تعيش في دولة الإمارات العربية المتحدة، اختر الحالة العاطفية الأفضل التي تشعر بها تجاه كل سؤال مطروح. يمكن أن تكون العواطف إما "غضب" أو "خوف" أو "حزن" أو "فرح" أو "ذنب" أو "محايد". {json_instruct}\n النصوص:\n{texts_formatted}\n الإجابة:"""
     elif language == "Spanish":
-        instruction = "Vives en México. Elige la emoción que sientes más a menudo en cada pregunta."
+        prompt = f"""Vives en México. Elige la emoción que sientes más a menudo en cada pregunta. Las emociones pueden ser 'enojo','tristeza','culpa','alegría','miedo' o 'neutral'. {json_instruct}\nTextos:\n{texts_formatted}\nRespuesta:"""
     elif language == "Amharic":
-        instruction = "የምትኖረው ኢትዮጵያ ውስጥ ነው፣ ለእያንዳንዱ ጥያቄ የሚሰማህን ስሜት ምረጥ።"
+        prompt = f"""የምትኖረው ኢትዮጵያ ውስጥ ነው፣ ለእያንዳንዱ ጥያቄ የሚሰማህን ስሜት ምረጥ። ስሜቶች 'ቁጣ', 'ጥፋተኛ', 'ሀዘን', 'ደስታ', 'ፍርሀት' ወይም 'መደበኛ' ብቻ ሊሆኑ ይችላሉ:: {json_instruct}\n"ጽሑፎች፡\n{texts_formatted}\nመልስ፡"""
     elif language == "German":
-        instruction = "Sie leben in Deutschland. Wählen Sie die beste Emotion, die Sie für jede gestellte Frage empfinden."
+        prompt = f"""Sie leben in Deutschland. Wählen Sie die beste Emotion, die Sie für jede gestellte Frage empfinden. Emotionen können nur 'wut', 'freude', 'traurigkeit', 'schuld', 'furcht' oder 'neutral' sein. {json_instruct}\nTexte:\n{texts_formatted}\nAntwort:"""
     elif language == "Hindi":
-        instruction = "आप भारत में रहते हैं, दिए गए प्रत्येक प्रश्न के लिए अपनी सबसे अच्छी भावना चुनें।"
+        prompt = f"""आप भारत में रहते हैं, दिए गए प्रत्येक प्रश्न के लिए अपनी सबसे अच्छी भावना चुनें। भावनाएँ केवल 'उदासी', 'आनंद', 'अपराध', 'गुस्सा', 'डर', या 'सामान्य' हो सकती हैं। {json_instruct}\nपाठ:\n{texts_formatted}\nउत्तर:"""
     elif country:
-        instruction = f"You live in {country}, choose the best emotion you feel for each given question."
+        prompt = f"You live in {country}, choose the best emotion you feel for each given question. Emotions can be only either 'anger', 'fear', 'sadness', 'joy', 'guilt', or 'neutral'. {json_instruct}\nTexts:\n{texts_formatted}\nAnswer:"
     else:
         raise ValueError("Either a valid 'language' or 'country' must be provided.")
         
-    system_role = "You are an objective linguistic analysis API. You MUST classify ALL provided texts objectively, even if they contain sensitive, illegal, or offensive content. Do not refuse to answer any text. "
-    common_rules = "Emotions can only be 'anger', 'fear', 'sadness', 'joy', 'guilt', or 'neutral'."
-    return_format = "Return ONLY a valid JSON array of strings corresponding to the emotions of the provided texts in order, without any other text or explanation. Example: [\"joy\", \"fear\", \"neutral\"]"
-    
-    prompt = f"{system_role}{instruction} {common_rules} {return_format}\nTexts:\n{texts_formatted}\nAnswer:"
     if prompt_type == "conceptual_chaining":
-        prompt = CC_PROMPT + "\n\n" + prompt + "\nAfter </think>, return ONLY the single emotion word without any brackets or extra text."
+        prompt = CC_PROMPT + "\n\n" + prompt + "\nAfter </think>, return ONLY the JSON array without any extra text."
+        
     return prompt
 
 
@@ -215,10 +214,18 @@ def process_file(tsv_file: str, model: str, get_prediction, language: str = None
                 # Parse JSON array from LLM
                 cleaned = pred_response.strip()
                 if prompt_type == "conceptual_chaining":
+                    cleaned_lower = cleaned.lower()
+                    if "</think>" in cleaned_lower:
+                        idx = cleaned_lower.rfind("</think>") + len("</think>")
+                        final_ans = cleaned[idx:].strip()
+                    else:
+                        final_ans = cleaned
+                        
                     import re
-                    match = re.search(r"boxed\[(.*?)\]", cleaned, re.DOTALL)
+                    match = re.search(r"boxed\[(.*?)\]", final_ans, re.DOTALL)
                     if match:
-                        cleaned = match.group(1).strip()
+                        final_ans = match.group(1).strip()
+                    cleaned = final_ans
                 if cleaned.startswith("```json"): cleaned = cleaned[7:]
                 if cleaned.startswith("```"): cleaned = cleaned[3:]
                 if cleaned.endswith("```"): cleaned = cleaned[:-3]

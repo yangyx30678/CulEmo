@@ -31,11 +31,11 @@ MODEL_NAME = "gemma4:e4b"  # Local Llama model to use (e.g. "llama3.2", "llama3.
 # Fix invalid Windows filenames by replacing ':' with '_'
 SAFE_MODEL_NAME = MODEL_NAME.replace(":", "_")
  
-PROMPT_TYPE = "conceptual_chaining"  # or "conceptual_chaining"
+PROMPT_TYPE = "conceptual_chaining"  # "standard" or "conceptual_chaining"
 
 OUTPUT_DIR_LANG = f"outputs/{SAFE_MODEL_NAME}_{PROMPT_TYPE}/lang"
 OUTPUT_DIR_COUNTRY = f"outputs/{SAFE_MODEL_NAME}_{PROMPT_TYPE}/countries"
-BATCH_SIZE = 1     # Batch size (set to 1 to bypass safety filters acting on entire batches, or >1 for speed)
+BATCH_SIZE = 20     # Batch size (set to 1 to bypass safety filters acting on entire batches, or >1 for speed)
 
 
 def get_prediction(model: str, prompt: str) -> tuple[str, str]:
