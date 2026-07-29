@@ -15,7 +15,8 @@ TSV_FILE_PATH = "data/test/spn.tsv"
 LANG = None     # "English", "Arabic", "Spanish", "German", "Amharic", "Hindi", None
 COUNTRY = "Mexico"      # "Ethiopia", "United Arab Emirates", "Germany", "India", "Mexico", None
 MODEL_NAME = "claude-3-opus-20240229"
-OUTPUT_JSON_PATH = "claude3_opus_outputs/countries/mex-eng_claude3_opus.json"
+PROMPT_TYPE = "standard"  # or "conceptual_chaining"
+OUTPUT_JSON_PATH = f"claude3_opus_outputs/countries/mex-eng_claude3_opus_{PROMPT_TYPE}.json"
 
 # Get API key from environment variable
 API_KEY = os.getenv("ANTHROPIC_API_KEY")
@@ -61,7 +62,8 @@ if __name__ == "__main__":
         model=MODEL_NAME,
         get_prediction=get_prediction,
         language=LANG,
-        country=COUNTRY
+        country=COUNTRY,
+        prompt_type=PROMPT_TYPE
     )
     # Save the results to a JSON file
     write_json(output_data, OUTPUT_JSON_PATH)

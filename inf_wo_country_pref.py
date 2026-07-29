@@ -17,7 +17,8 @@ TSV_FILE_PATH = "data/test/eng.tsv"
 LANG = "English"     # "English", "Arabic", "Spanish", "German", "Amharic", "Hindi", None
 COUNTRY = None
 MODEL_NAME = "gemini-1.5-flash"
-OUTPUT_JSON_PATH = "wo_country_pref_outputs/wo_country_pref_gemini1.5_flash/eng_wo-country-pref_gemini1.5_flash.json"
+PROMPT_TYPE = "standard"  # or "conceptual_chaining"
+OUTPUT_JSON_PATH = f"wo_country_pref_outputs/wo_country_pref_gemini1.5_flash_{PROMPT_TYPE}/eng_wo-country-pref_gemini1.5_flash.json"
 
 
 ### Gemini 1.5 Flash
@@ -74,7 +75,11 @@ def get_prediction(model_name: str, prompt):
 #         return prompt, prediction
 
 
-def get_prompt(language, country, text):
+def _get_cc_prompt():
+    with open("Conceptual Chaining System Prompt.md", "r", encoding="utf-8") as f:
+        return f.read()
+
+def get_prompt(language, country, text, prompt_type="standard"):
     """
     Generates a prompt for emotion prediction based on language or country context.
     
@@ -105,10 +110,14 @@ def get_prompt(language, country, text):
     #     prompt = f"You live in {country}, choose the best emotion you feel for the given question. Emotions can be only either 'anger', 'fear', 'sadness', 'joy', 'guilt', or 'neutral'. Return only a single emotion word from the list of emotions without further explanation. \nText: {text}"
     else:
         raise ValueError("Either a valid 'language' or 'country' must be provided.")
+    
+    if prompt_type == "conceptual_chaining":
+        prompt = _get_cc_prompt() + "\n\n" + prompt + "\nProvide the answer inside boxed[]."
+        
     return prompt
 
 
-def process_file(tsv_file: str, model: str, get_prediction, language = None, country = None) -> list[dict]:
+def process_file(tsv_file: str, model: str, get_prediction, language = None, country = None, prompt_type = "standard") -> list[dict]:
     """
     Processes a TSV file and generates predictions for each entry.
     
@@ -136,7 +145,12 @@ def process_file(tsv_file: str, model: str, get_prediction, language = None, cou
             else:
                 text_eng, text, emotion_eng, gt_emotion, sentiment_eng, gt_sentiment = row
 
-            prompt, pred_emotion = get_prediction(model, get_prompt(language, country, text))
+            prompt, pred_emotion = get_prediction(model, get_prompt(language, country, text, prompt_type))
+            if prompt_type == "conceptual_chaining":
+                import re
+                match = re.search(r"boxed\[(.*?)\]", pred_emotion, re.DOTALL)
+                if match: pred_emotion = match.group(1).strip()
+            
             results.append(
                 {
                     "prompt": prompt,
@@ -151,7 +165,7 @@ def process_file(tsv_file: str, model: str, get_prediction, language = None, cou
 
 
 if __name__ == "__main__":
-    output_data = process_file(tsv_file=TSV_FILE_PATH, model=MODEL_NAME, get_prediction=get_prediction, language=LANG, country=COUNTRY)
+    output_data = process_file(tsv_file=TSV_FILE_PATH, model=MODEL_NAME, get_prediction=get_prediction, language=LANG, country=COUNTRY, prompt_type=PROMPT_TYPE)
     write_json(output_data, OUTPUT_JSON_PATH)
 
 

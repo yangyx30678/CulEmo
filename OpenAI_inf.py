@@ -26,8 +26,10 @@ MODEL_NAME = "gpt-5.6-sol"
 # Fix invalid Windows filenames by replacing ':' with '_' (if any)
 SAFE_MODEL_NAME = MODEL_NAME.replace(":", "_")
 
-OUTPUT_DIR_LANG = f"outputs/{SAFE_MODEL_NAME}/lang"
-OUTPUT_DIR_COUNTRY = f"outputs/{SAFE_MODEL_NAME}/countries"
+PROMPT_TYPE = "standard"  # or "conceptual_chaining"
+
+OUTPUT_DIR_LANG = f"outputs/{SAFE_MODEL_NAME}_{PROMPT_TYPE}/lang"
+OUTPUT_DIR_COUNTRY = f"outputs/{SAFE_MODEL_NAME}_{PROMPT_TYPE}/countries"
 BATCH_SIZE = 20     # Set to > 1 to enable batch prediction, e.g., 20
 
 
@@ -109,7 +111,8 @@ if __name__ == "__main__":
             get_prediction=get_prediction,
             language=lang,
             country=None,
-            batch_size=BATCH_SIZE
+            batch_size=BATCH_SIZE,
+            prompt_type=PROMPT_TYPE
         )
         write_json(output_data, output_json)
         print(f"Finished {lang}!")
@@ -131,7 +134,8 @@ if __name__ == "__main__":
             get_prediction=get_prediction,
             language=None,
             country=country,
-            batch_size=BATCH_SIZE
+            batch_size=BATCH_SIZE,
+            prompt_type=PROMPT_TYPE
         )
         write_json(output_data, output_json)
         print(f"Finished {country}!")
