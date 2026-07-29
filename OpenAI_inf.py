@@ -22,16 +22,13 @@ COUNTRY_MAP = {
     "Mexico": ("spn", "mex-eng")
 }
 
-MODEL_NAME = "gpt-5.6-sol"
-# Fix invalid Windows filenames by replacing ':' with '_' (if any)
-SAFE_MODEL_NAME = MODEL_NAME.replace(":", "_")
-
-PROMPT_TYPE = "standard"  # or "conceptual_chaining"
-
-OUTPUT_DIR_LANG = f"outputs/{SAFE_MODEL_NAME}_{PROMPT_TYPE}/lang"
-OUTPUT_DIR_COUNTRY = f"outputs/{SAFE_MODEL_NAME}_{PROMPT_TYPE}/countries"
-BATCH_SIZE = 20     # Set to > 1 to enable batch prediction, e.g., 20
-
+MODELS = ["gpt-5.6-sol"]
+CONFIGS = [
+    ("standard", 1),
+    ("standard", 20),
+    ("conceptual_chaining", 1),
+    ("conceptual_chaining", 20)
+]
 
 # ponytail: Load env manually to avoid python-dotenv dependency
 def load_dotenv():
@@ -55,17 +52,6 @@ if not API_KEY:
 def get_prediction(model: str, prompt: str) -> tuple[str, str]:
     """
     Gets a prediction from the GPT model.
-    
-    Args:
-        model (str): Name of the GPT model to use (e.g., "gpt-4")
-        prompt (str): The prompt to send to the model
-        
-    Returns:
-        tuple[str, str]: A tuple containing (prompt, model_response)
-        
-    Note:
-        The model is configured to return a single emotion word from the allowed set:
-        'anger', 'fear', 'sadness', 'joy', 'guilt', or 'neutral'
     """
     url = "https://api.openai.com/v1/chat/completions"
     headers = {
@@ -94,48 +80,60 @@ def get_prediction(model: str, prompt: str) -> tuple[str, str]:
 
 
 if __name__ == "__main__":
-    # 1. Run Language Evaluations
-    print("=== Starting Language Evaluations ===", MODEL_NAME)
-    for lang, prefix in LANGUAGE_MAP.items():
-        print(f"\n[Language: {lang}]")
-        tsv_path = f"data/test/{prefix}.tsv"
-        output_json = f"{OUTPUT_DIR_LANG}/{prefix}_{SAFE_MODEL_NAME}.json"
-        
-        if os.path.exists(output_json):
-            print(f"-> {output_json} already exists. Skipping {lang}.")
-            continue
+    import os
+    
+    for model_name in MODELS:
+        safe_model_name = model_name.replace(":", "_")
+        for prompt_type, batch_size in CONFIGS:
+            pt_label = "CC" if prompt_type == "conceptual_chaining" else prompt_type
             
-        output_data = process_file(
-            tsv_file=tsv_path,
-            model=MODEL_NAME,
-            get_prediction=get_prediction,
-            language=lang,
-            country=None,
-            batch_size=BATCH_SIZE,
-            prompt_type=PROMPT_TYPE
-        )
-        write_json(output_data, output_json)
-        print(f"Finished {lang}!")
+            output_dir_lang = f"outputs/{safe_model_name}_{pt_label}_b{batch_size}/lang"
+            output_dir_country = f"outputs/{safe_model_name}_{pt_label}_b{batch_size}/countries"
+            
+            print(f"\n{'='*50}")
+            print(f"Running Model: {model_name} | Prompt: {prompt_type} | Batch: {batch_size}")
+            print(f"{'='*50}")
+            
+            # 1. Run Language Evaluations
+            for lang, prefix in LANGUAGE_MAP.items():
+                print(f"\n[Language: {lang}]")
+                tsv_path = f"data/test/{prefix}.tsv"
+                output_json = f"{output_dir_lang}/{prefix}_{safe_model_name}.json"
+                
+                if os.path.exists(output_json):
+                    print(f"-> {output_json} already exists. Skipping {lang}.")
+                    continue
+                    
+                output_data = process_file(
+                    tsv_file=tsv_path,
+                    model=model_name,
+                    get_prediction=get_prediction,
+                    language=lang,
+                    country=None,
+                    batch_size=batch_size,
+                    prompt_type=prompt_type
+                )
+                write_json(output_data, output_json)
+                print(f"Finished {lang}!")
 
-    # 2. Run Country Evaluations
-    print("\n=== Starting Country Evaluations ===")
-    for country, (prefix, out_prefix) in COUNTRY_MAP.items():
-        print(f"\n[Country: {country}]")
-        tsv_path = f"data/test/{prefix}.tsv"
-        output_json = f"{OUTPUT_DIR_COUNTRY}/{out_prefix}_{SAFE_MODEL_NAME}.json"
-        
-        if os.path.exists(output_json):
-            print(f"-> {output_json} already exists. Skipping {country}.")
-            continue
-            
-        output_data = process_file(
-            tsv_file=tsv_path,
-            model=MODEL_NAME,
-            get_prediction=get_prediction,
-            language=None,
-            country=country,
-            batch_size=BATCH_SIZE,
-            prompt_type=PROMPT_TYPE
-        )
-        write_json(output_data, output_json)
-        print(f"Finished {country}!")
+            # 2. Run Country Evaluations
+            for country, (prefix, out_prefix) in COUNTRY_MAP.items():
+                print(f"\n[Country: {country}]")
+                tsv_path = f"data/test/{prefix}.tsv"
+                output_json = f"{output_dir_country}/{out_prefix}_{safe_model_name}.json"
+                
+                if os.path.exists(output_json):
+                    print(f"-> {output_json} already exists. Skipping {country}.")
+                    continue
+                    
+                output_data = process_file(
+                    tsv_file=tsv_path,
+                    model=model_name,
+                    get_prediction=get_prediction,
+                    language=None,
+                    country=country,
+                    batch_size=batch_size,
+                    prompt_type=prompt_type
+                )
+                write_json(output_data, output_json)
+                print(f"Finished {country}!")

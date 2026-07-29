@@ -27,11 +27,15 @@ COUNTRY_MAP = {
     "Mexico": ("spn", "mex-eng")
 }
 
-MODEL_NAME = "gemini-3-flash-preview"
-PROMPT_TYPE = "standard"  # or "conceptual_chaining"
-OUTPUT_DIR_LANG = f"outputs/{MODEL_NAME}_{PROMPT_TYPE}/lang"
-OUTPUT_DIR_COUNTRY = f"outputs/{MODEL_NAME}_{PROMPT_TYPE}/countries"
-BATCH_SIZE = 20     # Set to > 1 to enable batch prediction, e.g., 20
+# MODELS = ["gemini-2.5-flash"] # Using a standard available model name since 3-flash is preview or you can keep gemini-3-flash-preview
+# Let's keep the one that was there originally
+MODELS = ["gemini-3.1-flash-lite"]
+CONFIGS = [
+    # ("standard", 1),
+    ("standard", 20),
+    # ("conceptual_chaining", 1),
+    ("conceptual_chaining", 20)
+]
 
 load_dotenv()
 # Get API key from environment variable
@@ -49,17 +53,6 @@ from google.genai import errors
 def get_prediction(model_name: str, prompt: str) -> tuple[str, str]:
     """
     Gets a prediction from the Gemini model.
-    
-    Args:
-        model_name (str): Name of the Gemini model to use (e.g., "gemini-1.5-flash")
-        prompt (str): The prompt to send to the model
-        
-    Returns:
-        tuple[str, str]: A tuple containing (prompt, model_response)
-        
-    Note:
-        The model is configured to return a single emotion word from the allowed set:
-        'anger', 'fear', 'sadness', 'joy', 'guilt', or 'neutral'
     """
     while True:
         try:
@@ -68,7 +61,7 @@ def get_prediction(model_name: str, prompt: str) -> tuple[str, str]:
                 contents=prompt
             )
             # 固定 RPM 為 5，也就是每次請求間隔至少 12 秒 (60秒 / 5)
-            time.sleep(12)
+            time.sleep(5)
             return prompt, response.text
         except errors.ClientError as e:
             if "429" in str(e):
@@ -79,51 +72,62 @@ def get_prediction(model_name: str, prompt: str) -> tuple[str, str]:
 
 
 if __name__ == "__main__":
-    # 1. Run Language Evaluations
-    print("=== Starting Language Evaluations ===")
     import os
-    for lang, prefix in LANGUAGE_MAP.items():
-        print(f"\n[Language: {lang}]")
-        tsv_path = f"data/test/{prefix}.tsv"
-        output_json = f"{OUTPUT_DIR_LANG}/{prefix}_{MODEL_NAME}.json"
-        
-        if os.path.exists(output_json):
-            print(f"-> {output_json} already exists. Skipping {lang}.")
-            continue
+    
+    for model_name in MODELS:
+        safe_model_name = model_name.replace(":", "_")
+        for prompt_type, batch_size in CONFIGS:
+            pt_label = "CC" if prompt_type == "conceptual_chaining" else prompt_type
             
-        output_data = process_file(
-            tsv_file=tsv_path,
-            model=MODEL_NAME,
-            get_prediction=get_prediction,
-            language=lang,
-            country=None,
-            batch_size=BATCH_SIZE,
-            prompt_type=PROMPT_TYPE
-        )
-        write_json(output_data, output_json)
-        print(f"Finished {lang}!")
+            output_dir_lang = f"outputs/{safe_model_name}_{pt_label}_b{batch_size}/lang"
+            output_dir_country = f"outputs/{safe_model_name}_{pt_label}_b{batch_size}/countries"
+            
+            print(f"\n{'='*50}")
+            print(f"Running Model: {model_name} | Prompt: {prompt_type} | Batch: {batch_size}")
+            print(f"{'='*50}")
+            
+            # 1. Run Language Evaluations
+            for lang, prefix in LANGUAGE_MAP.items():
+                print(f"\n[Language: {lang}]")
+                tsv_path = f"data/test/{prefix}.tsv"
+                output_json = f"{output_dir_lang}/{prefix}_{safe_model_name}.json"
+                
+                if os.path.exists(output_json):
+                    print(f"-> {output_json} already exists. Skipping {lang}.")
+                    continue
+                    
+                output_data = process_file(
+                    tsv_file=tsv_path,
+                    model=model_name,
+                    get_prediction=get_prediction,
+                    language=lang,
+                    country=None,
+                    batch_size=batch_size,
+                    prompt_type=prompt_type
+                )
+                write_json(output_data, output_json)
+                print(f"Finished {lang}!")
 
-    # 2. Run Country Evaluations
-    print("\n=== Starting Country Evaluations ===")
-    for country, (prefix, out_prefix) in COUNTRY_MAP.items():
-        print(f"\n[Country: {country}]")
-        tsv_path = f"data/test/{prefix}.tsv"
-        output_json = f"{OUTPUT_DIR_COUNTRY}/{out_prefix}_gemini3.1_flash.json"
-        
-        if os.path.exists(output_json):
-            print(f"-> {output_json} already exists. Skipping {country}.")
-            continue
-            
-        output_data = process_file(
-            tsv_file=tsv_path,
-            model=MODEL_NAME,
-            get_prediction=get_prediction,
-            language=None,
-            country=country,
-            batch_size=BATCH_SIZE,
-            prompt_type=PROMPT_TYPE
-        )
-        write_json(output_data, output_json)
-        print(f"Finished {country}!")
+            # 2. Run Country Evaluations
+            for country, (prefix, out_prefix) in COUNTRY_MAP.items():
+                print(f"\n[Country: {country}]")
+                tsv_path = f"data/test/{prefix}.tsv"
+                output_json = f"{output_dir_country}/{out_prefix}_{safe_model_name}.json"
+                
+                if os.path.exists(output_json):
+                    print(f"-> {output_json} already exists. Skipping {country}.")
+                    continue
+                    
+                output_data = process_file(
+                    tsv_file=tsv_path,
+                    model=model_name,
+                    get_prediction=get_prediction,
+                    language=None,
+                    country=country,
+                    batch_size=batch_size,
+                    prompt_type=prompt_type
+                )
+                write_json(output_data, output_json)
+                print(f"Finished {country}!")
 
 
