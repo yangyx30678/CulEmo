@@ -180,7 +180,14 @@ def process_file(tsv_file: str, model: str, get_prediction, language = None, cou
                 match = re.search(r"boxed\[(.*?)\]", final_ans, re.DOTALL)
                 if match: final_ans = match.group(1).strip()
                 
-                valid_emotions = ['anger', 'fear', 'sadness', 'joy', 'guilt', 'neutral']
+                valid_emotions = [
+                    'anger', 'fear', 'sadness', 'joy', 'guilt', 'neutral',
+                    'غضب', 'خوف', 'حزن', 'فرح', 'ذنب', 'محايد',
+                    'enojo', 'tristeza', 'culpa', 'alegría', 'miedo',
+                    'ቁጣ', 'ጥፋተኛ', 'ሀዘን', 'ደስታ', 'ፍርሀት', 'መደበኛ',
+                    'wut', 'freude', 'traurigkeit', 'schuld', 'furcht',
+                    'उदासी', 'आनंद', 'अपराध', 'गुस्सा', 'डर', 'सामान्य'
+                ]
                 found = [e for e in valid_emotions if e in final_ans]
                 if found:
                     pred_emotion = found[-1]

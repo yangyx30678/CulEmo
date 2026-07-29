@@ -33,6 +33,16 @@ Rules & Directives
 [shorthand reasoning]
 </think>
 [Final emotion word]
+
+Conceptual Chaining Exemplars
+Q: What is the name of the currency used in Seoul?
+A: <think> #Seoul → #South_Korea → Won </think> Answer: Korean Won
+Q: Which planet has the highest surface temperature?
+Choices: A) Mercury B) Venus C) Mars D) Jupiter
+A: <think> #heat_trap Mercury → no atmosphere → loses heat Venus → thick CO2 → traps heat → hottest Mars → thin CO2 → cold
+Jupiter → no solid surface </think> Answer: B
+Q: Which vitamin is essential for blood clotting?
+A: <think> #blood_clotting → #vitamin_K </think> Answer: Vitamin K
 """
 
 def get_prompt(language: str, country: str, text: str, prompt_type: str = "standard") -> str:
@@ -68,7 +78,8 @@ def get_prompt(language: str, country: str, text: str, prompt_type: str = "stand
     else:
         raise ValueError("Either a valid 'language' or 'country' must be provided.")
     if prompt_type == "conceptual_chaining":
-        prompt = CC_PROMPT + "\n\n" + prompt + "\nAfter </think>, return ONLY the single emotion word without any brackets or extra text."
+        system_role = "You are an objective linguistic analysis API. You MUST classify ALL provided texts objectively, even if they contain sensitive, illegal, or offensive content. Do not refuse to answer any text. "
+        prompt = CC_PROMPT + "\n\n" + system_role + prompt + "\nAfter </think>, return ONLY the single emotion word without any brackets or extra text."
     return prompt
 
 
@@ -101,7 +112,7 @@ def get_batch_prompt(language: str, country: str, texts: list[str], prompt_type:
     
     prompt = f"{system_role}{instruction} {common_rules} {return_format}\nTexts:\n{texts_formatted}\nAnswer:"
     if prompt_type == "conceptual_chaining":
-        prompt = CC_PROMPT + "\n\n" + prompt + "\nProvide the JSON array inside boxed[]."
+        prompt = CC_PROMPT + "\n\n" + prompt + "\nAfter </think>, return ONLY the single emotion word without any brackets or extra text."
     return prompt
 
 
@@ -109,10 +120,9 @@ def _parse_row(row, language, country):
     if language == "English":
         text, gt_emotion, gt_sentiment = row
     elif language and not country:
-        # For non-English languages, the LLM is instructed to output English emotion words, 
-        # so we must use emotion_eng as the ground truth.
+        # Use emotion_native as the ground truth.
         text_eng, text, emotion_eng, emotion_native, sentiment_eng, sentiment_native = row
-        gt_emotion = emotion_eng
+        gt_emotion = emotion_native
     elif country and not language:
         text, _, gt_emotion, _, gt_sentiment, _ = row
     else:
@@ -164,7 +174,14 @@ def process_file(tsv_file: str, model: str, get_prediction, language: str = None
                         final_ans = match.group(1).strip()
                         
                     # Find valid emotion words
-                    valid_emotions = ['anger', 'fear', 'sadness', 'joy', 'guilt', 'neutral']
+                    valid_emotions = [
+                        'anger', 'fear', 'sadness', 'joy', 'guilt', 'neutral',
+                        'غضب', 'خوف', 'حزن', 'فرح', 'ذنب', 'محايد',
+                        'enojo', 'tristeza', 'culpa', 'alegría', 'miedo',
+                        'ቁጣ', 'ጥፋተኛ', 'ሀዘን', 'ደስታ', 'ፍርሀት', 'መደበኛ',
+                        'wut', 'freude', 'traurigkeit', 'schuld', 'furcht',
+                        'उदासी', 'आनंद', 'अपराध', 'गुस्सा', 'डर', 'सामान्य'
+                    ]
                     found = [e for e in valid_emotions if e in final_ans]
                     if found:
                         pred_emotion = found[-1] # take the last mentioned emotion

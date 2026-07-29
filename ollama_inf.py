@@ -26,8 +26,8 @@ COUNTRY_MAP = {
     "Mexico": ("spn", "mex-eng")
 }
 
-# MODEL_NAME = "gemma4:e4b"  # Local Llama model to use (e.g. "llama3.2", "llama3.1:8b")
-MODEL_NAME = "llama3.1:8b"  # Local Llama model to use (e.g. "llama3.2", "llama3.1:8b")
+MODEL_NAME = "gemma4:e4b"  # Local Llama model to use (e.g. "llama3.2", "llama3.1:8b")
+# MODEL_NAME = "llama3.1:8b"  # Local Llama model to use (e.g. "llama3.2", "llama3.1:8b")
 # Fix invalid Windows filenames by replacing ':' with '_'
 SAFE_MODEL_NAME = MODEL_NAME.replace(":", "_")
  
