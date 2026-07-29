@@ -75,9 +75,31 @@ def get_prediction(model_name: str, prompt):
 #         return prompt, prediction
 
 
-def _get_cc_prompt():
-    with open("Conceptual Chaining System Prompt.md", "r", encoding="utf-8") as f:
-        return f.read()
+CC_PROMPT = """## Conceptual Chaining System Prompt
+
+Role & Objective
+You are a reasoning expert specializing in structured concept linking by connecting essential ideas in a logical sequence.
+Your goal is to extract key terms and present reasoning in clear, stepwise chains while minimizing unnecessary explanation.
+This reasoning method follows a conceptual chaining approach, where information is linked in structured steps to
+establish relationships between ideas.
+
+How to Apply Conceptual Chaining
+1. Extract Key Concepts → Identify the most relevant words or entities.
+2. Use Minimal Words → Keep each reasoning step concise and direct.
+3. Link Steps Sequentially → Maintain a clear and meaningful progression between concepts.
+4. Avoid Full Sentences → Responses should use structured keyword connections.
+5. Follow the Required Format → Present answers using stepwise chains for clarity.
+
+Rules & Directives
+1. Use Structured Concept Linking (arrows '→')
+2. Avoid Unnecessary Text
+3. Maintain Logical Flow
+4. Output Format:
+<think>
+[shorthand reasoning]
+</think>
+[Final emotion word]
+"""
 
 def get_prompt(language, country, text, prompt_type="standard"):
     """
@@ -112,7 +134,7 @@ def get_prompt(language, country, text, prompt_type="standard"):
         raise ValueError("Either a valid 'language' or 'country' must be provided.")
     
     if prompt_type == "conceptual_chaining":
-        prompt = _get_cc_prompt() + "\n\n" + prompt + "\nProvide the answer inside boxed[]."
+        prompt = CC_PROMPT + "\n\n" + prompt + "\nAfter </think>, return ONLY the single emotion word without any brackets or extra text."
         
     return prompt
 
@@ -148,8 +170,22 @@ def process_file(tsv_file: str, model: str, get_prediction, language = None, cou
             prompt, pred_emotion = get_prediction(model, get_prompt(language, country, text, prompt_type))
             if prompt_type == "conceptual_chaining":
                 import re
-                match = re.search(r"boxed\[(.*?)\]", pred_emotion, re.DOTALL)
-                if match: pred_emotion = match.group(1).strip()
+                cleaned = pred_emotion.lower()
+                
+                if "</think>" in cleaned:
+                    final_ans = cleaned.split("</think>")[-1].strip()
+                else:
+                    final_ans = cleaned
+                    
+                match = re.search(r"boxed\[(.*?)\]", final_ans, re.DOTALL)
+                if match: final_ans = match.group(1).strip()
+                
+                valid_emotions = ['anger', 'fear', 'sadness', 'joy', 'guilt', 'neutral']
+                found = [e for e in valid_emotions if e in final_ans]
+                if found:
+                    pred_emotion = found[-1]
+                else:
+                    pred_emotion = final_ans.strip()
             
             results.append(
                 {
